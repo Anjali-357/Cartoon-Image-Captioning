@@ -1,0 +1,17 @@
+[server]
+# Fix 403 error on file uploads (XSRF/CORS protection)
+enableXsrfProtection = false
+enableCORS = false
+maxUploadSize = 200
+
+[browser]
+# Open in default browser automatically
+gatherUsageStats = false
+
+[theme]
+base = "dark"
+primaryColor = "#7c3aed"
+backgroundColor = "#0d0d1a"
+secondaryBackgroundColor = "#13132b"
+textColor = "#f0f0ff"
+font = "sans serif"

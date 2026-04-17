@@ -1,0 +1,14 @@
+torch>=2.0.0
+transformers>=4.37.0
+streamlit>=1.32.0
+Pillow>=10.0.0
+huggingface_hub>=0.20.0
+peft>=0.8.0
+accelerate>=0.27.0
+evaluate>=0.4.0
+sentencepiece>=0.1.99
+protobuf>=3.20.0
+numpy>=1.24.0
+pandas>=2.0.0
+matplotlib>=3.7.0
+tqdm>=4.66.0
