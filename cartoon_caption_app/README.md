@@ -1,3 +1,14 @@
+---
+title: Cartoon Captioner
+emoji: 🎨
+colorFrom: blue
+colorTo: purple
+sdk: streamlit
+sdk_version: "1.32.0"
+app_file: app.py
+pinned: false
+---
+
 # 🎨 CartoonCap AI — Cartoon Image Captioning Research Project
 
 > **Hybrid Cross-Modal Captioning for Cartoon Images** using Vision Transformers, BLIP-2, and LLMs with Humor-Aware Training
