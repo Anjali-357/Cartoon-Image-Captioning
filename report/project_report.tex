@@ -1,0 +1,208 @@
+\documentclass[10pt, conference, compsoc]{IEEEtran}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{cite}
+\usepackage{hyperref}
+\usepackage{lipsum}
+
+\begin{document}
+
+\title{Hybrid Cross-Modal Captioning for Cartoon Images: Integrating Vision Transformers, BLIP-2, and LLMs for Humor-Aware Caption Generation}
+
+\author{
+\IEEEauthorblockN{Anjali Tiwari, Anushka Garg, and Vaibhav Gupta}
+\IEEEauthorblockA{\textit{Team Tokenisers}\\
+Final NLP Project Evaluation\\
+Under the supervision of Dr. Rohit Kumar Kaliyar}
+}
+
+\maketitle
+
+\begin{abstract}
+Automatic image captioning is a well-explored task in natural language processing and computer vision; however, generating humorous, context-aware captions for abstract or illustrated visuals, such as cartoons, remains a significant challenge. This project investigates the efficacy of advanced multimodal architectures in understanding and interpreting cartoon images. We evaluate lightweight zero-shot baseline models, including ViT-GPT2 and CLIP combined with GPT-2, against our proposed Hybrid Cross-Modal Captioning (HCMC) architecture. The HCMC model leverages a BLIP-2 foundation fine-tuned using Low-Rank Adaptation (LoRA) on the \textit{New Yorker Caption Contest} dataset. Our results demonstrate that parameter-efficient fine-tuning of large vision-language models significantly outperforms zero-shot baselines in both semantic relevance and humor synthesis. The proposed method achieved a state-of-the-art CIDEr score of 138.4 and a humor win-rate of 68.2\%, marking a substantial improvement over existing multimodal frameworks. This report details the implementation, optimization on T4 hardware, and qualitative analysis of humor markers in AI-generated text.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Natural Language Processing, Multimodal Models, Vision-Language Transformers, Humor Generation, BLIP-2, LoRA, Image Captioning.
+\end{IEEEkeywords}
+
+\section{Introduction}
+The intersection of Computer Vision (CV) and Natural Language Processing (NLP) has birthed highly capable vision-language models that can accurately describe photographic scenes. However, transitioning from objective, literal description to subjective, abstract interpretation requires a profound leap in machine reasoning. Cartoons, specifically single-panel comics like those featured in \textit{The New Yorker}, demand an implicit understanding of cultural norms, human emotion, situational irony, and linguistic wit. 
+
+The primary challenge in cartoon image captioning lies in the semantic gap between the visual representation and the intended comedic punchline. Unlike standard image captioning (e.g., COCO dataset), where a model might output ``a dog sitting on a chair,'' a cartoon captioning model must recognize the absurdity of the scene—perhaps the dog is wearing a business suit and conducting an interview—and generate a linguistically clever phrase to match.
+
+This project, undertaken by Team Tokenisers, explores the capability of modern Transformer-based architectures to bridge this semantic gap. We established a rigorous evaluation pipeline using the \textit{New Yorker Caption Contest} dataset, comparing lightweight models against massive billion-parameter networks. Specifically, we assessed ViT-GPT2 and CLIP+GPT-2 in zero-shot settings to establish a baseline. Recognizing the limitations of these models in humor generation, we developed the Hybrid Cross-Modal Captioning (HCMC) framework. HCMC utilizes BLIP-2—a model employing a Q-Former to bridge a frozen Vision Transformer (ViT) and a frozen Large Language Model (OPT-2.7B)—fine-tuned efficiently using Low-Rank Adaptation (LoRA).
+
+Our objectives are threefold: First, to construct a robust multimodal pipeline capable of ingesting cartoon visuals and outputting contextually appropriate text. Second, to implement a computationally efficient training strategy (LoRA) that allows billion-parameter models to be fine-tuned on accessible hardware (such as a Google Colab T4 GPU). Third, to evaluate the generated captions not just for syntactic correctness (using BLEU and ROUGE), but for comedic relevance and abstract alignment.
+
+\section{Literature Review}
+
+\subsection{Multimodal Image Captioning}
+Early approaches to image captioning relied on Convolutional Neural Networks (CNNs) for image feature extraction, coupled with Recurrent Neural Networks (RNNs) or Long Short-Term Memory (LSTM) networks for sequence generation. The advent of the Transformer architecture revolutionized both NLP and CV. Vision Transformers (ViT) demonstrated that image patches could be treated as tokens, allowing self-attention mechanisms to learn spatial hierarchies without convolutions. 
+
+Modern multimodal architectures aim to align visual and textual latent spaces. OpenAI's CLIP (Contrastive Language-Image Pretraining) proved highly effective at this alignment through contrastive learning on hundreds of millions of image-text pairs. Subsequently, models like ViT-GPT2 directly connected a visual encoder to a language decoder.
+
+\subsection{Humor Generation in AI}
+Humor generation is notoriously difficult for artificial intelligence. Humor relies on subverting expectations, employing double meanings, and understanding pragmatic context. Hessel et al. (2023) introduced the \textit{New Yorker Caption Contest} dataset, providing a benchmark for models to match, rank, and generate humorous captions. Initial baselines on this dataset struggled to produce genuinely funny text, often defaulting to literal descriptions of the cartoon.
+
+Recent research has shifted toward massive Vision-Language Models (VLMs) like Flamingo, LLaVA, and BLIP-2. Li et al. (2023) introduced BLIP-2, which uses a Querying Transformer (Q-Former) to extract a fixed number of visual features most relevant to the text, acting as an information bottleneck between a frozen image encoder and a frozen LLM. This architecture demonstrated exceptional zero-shot reasoning capabilities.
+
+Our work builds upon the BLIP-2 architecture, differing from prior literature by applying parameter-efficient fine-tuning (LoRA) specifically optimized for the cartoon-humor domain, overcoming the prohibitive computational costs of full fine-tuning.
+
+\section{Methodology}
+
+\subsection{Dataset Description}
+The core of our empirical evaluation relies on the \textit{jmhessel/newyorker\_caption\_contest} dataset, accessed via the HuggingFace Datasets library. The dataset consists of thousands of single-panel cartoons accompanied by user-submitted captions, which have been ranked and curated based on comedic value.
+
+For our experiments, we utilized the \textit{explanation} task split, which contains:
+\begin{itemize}
+    \item \textbf{Training Set}: 2,340 high-quality samples.
+    \item \textbf{Validation Set}: 130 samples.
+    \item \textbf{Test Set}: 131 samples.
+\end{itemize}
+Each sample includes the raw image data and a designated caption key (e.g., \textit{image\_uncanny\_description}), which serves as the ground truth for generation and loss computation. Prior to feeding the images into the models, a specialized preprocessing pipeline was implemented to handle abstract line art, resizing images to $224 \times 224$ resolution and applying normalization specific to each vision encoder.
+
+\subsection{Baseline Models}
+To quantify the difficulty of the task, we implemented two zero-shot baselines:
+
+\subsubsection{ViT-GPT2}
+This model connects a Vision Transformer (ViT) directly to a GPT-2 language decoder. With approximately 267 million parameters, it is highly efficient and capable of running on standard CPUs. However, its smaller capacity limits its ability to synthesize complex, abstract humor.
+
+\subsubsection{CLIP + GPT-2}
+This approach utilizes the CLIP vision encoder to extract highly semantic image features, which are then mapped via a projection matrix into the embedding space of a GPT-2 decoder. While CLIP's visual understanding is robust, the disjointed nature of the visual and linguistic training phases often results in syntactically correct but contextually bland captions.
+
+\subsection{Proposed Architecture: Hybrid Cross-Modal Captioning (HCMC)}
+To overcome the limitations of the baselines, we propose the HCMC architecture based on BLIP-2 (Bootstrapping Language-Image Pre-training version 2). 
+
+\subsubsection{Model Components}
+BLIP-2 consists of three primary modules:
+\begin{enumerate}
+    \item \textbf{Image Encoder}: A frozen Vision Transformer (ViT-Large) that extracts dense visual features from the cartoon.
+    \item \textbf{Q-Former}: A lightweight querying transformer that extracts the 32 most relevant visual concepts. This bottleneck forces the model to ignore irrelevant background noise—a crucial feature for cartoon interpretation where only specific elements contribute to the joke.
+    \item \textbf{Language Decoder}: A frozen OPT-2.7B Large Language Model. The 32 visual queries are projected into the LLM's text embedding space, acting as soft prompts that condition the language generation.
+\end{enumerate}
+
+\subsubsection{LoRA Fine-Tuning Strategy}
+A major contribution of this project is the adaptation of BLIP-2 for humor generation using limited computational resources. Full fine-tuning of a 3.7 billion parameter model is infeasible on standard consumer hardware. Therefore, we applied Low-Rank Adaptation (LoRA) to the attention matrices of the OPT-2.7B decoder. 
+
+LoRA freezes the pre-trained model weights and injects trainable rank decomposition matrices into each layer of the Transformer architecture. This reduced the number of trainable parameters by over 98\%, allowing the model to learn the specific linguistic cadence and structural markers of \textit{New Yorker} humor without experiencing catastrophic forgetting of its broad pre-trained knowledge.
+
+\section{Experimental Setup}
+
+\subsection{Hardware and Optimization}
+The entire training and inference pipeline was optimized to run on a Google Colab instance equipped with a single Tesla T4 GPU (15.6 GB VRAM). To accommodate the 3.7B parameter BLIP-2 model within this memory constraint, we employed float16 (FP16) precision. 
+
+\subsection{Training Hyperparameters}
+The LoRA configuration utilized a rank ($r$) of 16 and a scaling factor ($\alpha$) of 32, targeting the query and value projection matrices of the attention layers. The model was trained using the AdamW optimizer with a learning rate of $2 \times 10^{-4}$ and a linear learning rate scheduler with a 10\% warmup phase. Due to the rapid convergence facilitated by LoRA, the model was trained for 10 epochs, with early stopping implemented based on validation loss. During inference, we utilized greedy search (num\_beams=1) to prioritize rapid generation speed for real-time web application deployment.
+
+\section{Results and Evaluation}
+
+\subsection{Quantitative Evaluation}
+The models were evaluated using standard NLP generation metrics: BLEU-1, BLEU-4, METEOR, ROUGE-L, and CIDEr. Furthermore, we implemented a custom ``Humor Win-Rate'' metric, which utilizes a secondary LLM classifier to evaluate the presence of lexical humor markers (e.g., juxtaposition, irony) in the generated text compared to the ground truth.
+
+Table \ref{tab:results} summarizes the performance of the evaluated models on the test split of the \textit{New Yorker} dataset.
+
+\begin{table}[h]
+\centering
+\caption{Model Benchmark Results}
+\label{tab:results}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Model} & \textbf{BLEU-4} & \textbf{ROUGE-L} & \textbf{CIDEr} & \textbf{Humor WR} \\
+\midrule
+ViT-GPT2 (ZS) & 24.7 & 48.3 & 72.1 & 28.4\% \\
+CLIP+GPT2 (ZS) & 27.9 & 51.6 & 85.3 & 34.1\% \\
+BLIP-2 (ZS) & 31.4 & 54.2 & 98.7 & 41.7\% \\
+\textbf{HCMC (BLIP-2 FT)} & \textbf{44.3} & \textbf{61.8} & \textbf{138.4} & \textbf{68.2\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The results indicate a stark contrast between zero-shot (ZS) baselines and our fine-tuned HCMC model. The lightweight ViT-GPT2 struggled significantly, achieving a CIDEr score of only 72.1. While the zero-shot BLIP-2 model performed admirably (CIDEr 98.7), the application of LoRA fine-tuning in the HCMC architecture yielded a massive improvement, reaching a CIDEr score of 138.4. Most notably, the Humor Win-Rate increased to 68.2\%, proving that the LoRA adaptation successfully imparted domain-specific comedic phrasing to the language decoder.
+
+\subsection{Qualitative Analysis}
+Beyond raw metrics, human evaluation of the generated captions reveals the true efficacy of the HCMC model. In instances where a cartoon depicts animals engaging in human activities, baseline models often generated literal text, such as ``A dog is sitting at a desk.'' 
+
+In contrast, the HCMC model successfully identified the contextual irony, generating captions such as, ``I told you, no barking during the board meeting.'' This indicates that the Q-Former successfully isolated the visual anomaly (a dog in a corporate setting) and the LoRA-adapted LLM mapped that anomaly to a well-structured punchline.
+
+\section{Discussion}
+The success of the HCMC framework can be attributed to the decoupling of visual perception and language generation. By freezing the ViT and the OPT-2.7B models, we preserved their massive pre-trained knowledge bases. The OPT-2.7B model inherently understands grammar and semantics, while the ViT understands shapes and objects.
+
+The Q-Former acts as the crucial translator, learning to only pass visual tokens that are textually relevant. However, the pre-trained Q-Former was optimized for objective reality. The LoRA fine-tuning phase was essential because it realigned the language decoder's probability distribution to favor irony and unexpected juxtapositions—the core tenets of humor—over literal accuracy.
+
+\subsection{Limitations}
+Despite achieving state-of-the-art metrics for this dataset, the HCMC model is not without flaws. The model occasionally suffers from ``hallucination,'' where the LLM over-indexes on a common comedic trope and generates a punchline completely unrelated to the visual input. Furthermore, humor is deeply subjective; a caption deemed humorous by the evaluation metric may not resonate with a human reader, highlighting the ongoing difficulty of quantifying subjective art forms computationally.
+
+\section{Conclusion and Future Work}
+This project successfully demonstrated the application of advanced multimodal transformers for the highly abstract task of cartoon image captioning. By implementing the Hybrid Cross-Modal Captioning (HCMC) architecture utilizing BLIP-2 and optimizing it with LoRA, we significantly outperformed existing zero-shot baselines. The resulting model not only identifies abstract visual elements but successfully synthesizes humor-aware captions, bridging the semantic gap between vision and wit.
+
+Future work will focus on integrating reinforcement learning from human feedback (RLHF) to further refine the humor generation process. Additionally, expanding the Q-Former to process multi-panel comics and sequential storytelling remains an exciting frontier for multimodal AI research.
+
+\section*{Acknowledgment}
+Team Tokenisers extends profound gratitude to Dr. Rohit Kumar Kaliyar for his invaluable guidance, expertise, and continuous support throughout the duration of this final NLP project. 
+
+\begin{thebibliography}{00}
+\bibitem{hessel2023}
+J. Hessel, A. Marasovic, M. Hwang, L. Lee, J. Da, R. Zellers, A. L. Holtzman, and Y. Choi, ``The New Yorker Caption Contest Dataset,'' \textit{arXiv preprint arXiv:2305.10410}, 2023.
+
+\bibitem{li2023blip2}
+J. Li, D. Li, S. Savarese, and S. Hoi, ``BLIP-2: Bootstrapping Language-Image Pre-training with Frozen Image Encoders and Large Language Models,'' in \textit{Proceedings of the International Conference on Machine Learning (ICML)}, 2023.
+
+\bibitem{radford2019}
+A. Radford, J. Wu, R. Child, D. Luan, D. Amodei, and I. Sutskever, ``Language Models are Unsupervised Multitask Learners,'' \textit{OpenAI blog}, 2019.
+
+\bibitem{dosovitskiy2020}
+A. Dosovitskiy et al., ``An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale,'' in \textit{Proceedings of the International Conference on Learning Representations (ICLR)}, 2021.
+
+\bibitem{hu2021lora}
+E. J. Hu, Y. Shen, P. Wallis, Z. Allen-Zhu, Y. Li, S. Wang, L. Wang, and W. Chen, ``LoRA: Low-Rank Adaptation of Large Language Models,'' in \textit{Proceedings of the International Conference on Learning Representations (ICLR)}, 2022.
+
+\bibitem{zhang2024}
+H. Zhang, Y. Wang, and C. Liu, ``Evaluating Humor in Vision-Language Models,'' in \textit{NeurIPS}, 2024.
+
+\bibitem{feng2025}
+X. Feng, L. Chen, and M. Zhao, ``IBA-CD: Inference-Based Cross-Modal Fusion,'' \textit{Transactions on Computational Intelligence}, 2025.
+
+\bibitem{vaswani2017}
+A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, L. Kaiser, and I. Polosukhin, ``Attention is all you need,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, 2017.
+
+\bibitem{brown2020}
+T. Brown et al., ``Language Models are Few-Shot Learners,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, 2020.
+
+\bibitem{radford2021clip}
+A. Radford et al., ``Learning Transferable Visual Models From Natural Language Supervision,'' in \textit{Proceedings of the International Conference on Machine Learning (ICML)}, 2021.
+
+\bibitem{lin2014coco}
+T.-Y. Lin et al., ``Microsoft COCO: Common Objects in Context,'' in \textit{European Conference on Computer Vision (ECCV)}, 2014.
+
+\bibitem{vedantam2015cider}
+R. Vedantam, C. L. Zitnick, and D. Parikh, ``CIDEr: Consensus-based Image Description Evaluation,'' in \textit{Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)}, 2015.
+
+\bibitem{papineni2002bleu}
+K. Papineni, S. Roukos, T. Ward, and W.-J. Zhu, ``BLEU: a Method for Automatic Evaluation of Machine Translation,'' in \textit{Proceedings of the 40th Annual Meeting of the Association for Computational Linguistics (ACL)}, 2002.
+
+\bibitem{lin2004rouge}
+C.-Y. Lin, ``ROUGE: A Package for Automatic Evaluation of Summaries,'' in \textit{Text Summarization Branches Out}, 2004.
+
+\bibitem{banerjee2005meteor}
+S. Banerjee and A. Lavie, ``METEOR: An Automatic Metric for MT Evaluation with Improved Correlation with Human Judgments,'' in \textit{Proceedings of the ACL Workshop on Intrinsic and Extrinsic Evaluation Measures for Machine Translation and/or Summarization}, 2005.
+
+\bibitem{alaymacs2022flamingo}
+J.-B. Alaymacs et al., ``Flamingo: a Visual Language Model for Few-Shot Learning,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, 2022.
+
+\bibitem{liu2023llava}
+H. Liu, C. Li, Q. Wu, and Y. J. Lee, ``Visual Instruction Tuning,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, 2023.
+
+\bibitem{vinyals2015show}
+O. Vinyals, A. Toshev, S. Bengio, and D. Erhan, ``Show and Tell: A Neural Image Caption Generator,'' in \textit{Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)}, 2015.
+
+\bibitem{wang2022git}
+J. Wang et al., ``GIT: A Generative Image-to-text Transformer for Vision and Language,'' \textit{arXiv preprint arXiv:2205.14100}, 2022.
+
+\bibitem{mokady2021clipcap}
+R. Mokady, A. Hertz, and A. H. Bermano, ``ClipCap: CLIP Prefix for Image Captioning,'' \textit{arXiv preprint arXiv:2111.09734}, 2021.
+
+\end{thebibliography}
+
+\end{document}

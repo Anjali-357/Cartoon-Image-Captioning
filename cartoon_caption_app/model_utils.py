@@ -106,6 +106,10 @@ def generate_vit_gpt2(
             early_stopping=True,
             return_dict_in_generate=True,
             output_scores=True,
+            do_sample=True,
+            temperature=1.2,
+            top_p=0.9,
+            repetition_penalty=1.2,
         )
 
         sequences = output_ids.sequences if hasattr(output_ids, "sequences") else output_ids
@@ -151,9 +155,9 @@ def load_blip2():
 
 
 BLIP2_CARTOON_PROMPTS = [
-    "A funny New Yorker-style caption for this cartoon:",
-    "This cartoon is funny because",
-    "Question: What would be a witty caption for this cartoon? Answer:",
+    "Write a witty, sarcastic, and funny punchline for this cartoon:",
+    "A humorous and clever New Yorker comic caption:",
+    "Question: What is the funniest possible joke to describe this scene? Answer:",
 ]
 
 
@@ -190,7 +194,9 @@ def generate_blip2(
                     max_new_tokens=max_new_tokens,
                     num_beams=4,
                     repetition_penalty=1.3,
-                    temperature=0.9,
+                    temperature=1.1,
+                    do_sample=True,
+                    top_p=0.9,
                 )
 
             caption = processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
@@ -231,9 +237,9 @@ def generate_blip(
     img = preprocess_cartoon(image)
 
     prompts = [
-        "a funny cartoon caption:",
-        "this cartoon shows",
-        "a witty caption for this cartoon:",
+        "a witty, humorous, and funny cartoon punchline:",
+        "a sarcastic joke about this image:",
+        "a clever and funny New Yorker caption:",
     ][:num_captions]
 
     results = []
@@ -241,7 +247,15 @@ def generate_blip(
         try:
             inputs = processor(img, text=prompt, return_tensors="pt").to(DEVICE)
             with torch.no_grad():
-                out = model.generate(**inputs, max_new_tokens=max_new_tokens, num_beams=4)
+                out = model.generate(
+                    **inputs, 
+                    max_new_tokens=max_new_tokens, 
+                    num_beams=4,
+                    temperature=1.1,
+                    do_sample=True,
+                    top_p=0.9,
+                    repetition_penalty=1.2
+                )
             caption = processor.decode(out[0], skip_special_tokens=True).strip()
             if caption.lower().startswith(prompt.lower()):
                 caption = caption[len(prompt):].strip()
