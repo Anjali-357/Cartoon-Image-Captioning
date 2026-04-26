@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: cartoon-caption-app
+    env: python
+    region: oregon
+    buildCommand: "pip install torch==2.2.0+cpu torchvision==0.17.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html && pip install -r cartoon_caption_app/requirements.txt"
+    startCommand: "streamlit run cartoon_caption_app/app.py --server.port $PORT --server.address 0.0.0.0"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
