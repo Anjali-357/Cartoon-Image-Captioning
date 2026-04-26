@@ -13,11 +13,6 @@ os.environ["TRANSFORMERS_NO_FLAX"] = "1"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"   # suppress TF C++ logs
 
 import streamlit as st
-
-# Fallback for older Streamlit versions that lack st.html (like v1.32.0)
-if not hasattr(st, 'html'):
-    st.html = lambda x: st.markdown(x, unsafe_allow_html=True)
-
 from PIL import Image
 import io
 import time
